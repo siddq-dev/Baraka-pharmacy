@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'theme/app_theme.dart';
+import '../features/splash/presentation/splash_screen.dart';
 
 class BarakaPharmacyApp extends StatelessWidget {
   const BarakaPharmacyApp({super.key});
@@ -10,17 +11,11 @@ class BarakaPharmacyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      title: 'Baraka Pharmacy',
+      title: 'Barakaa Pharmacy',
 
       theme: AppTheme.light,
 
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'Baraka Pharmacy',
-          ),
-        ),
-      ),
+      home: const SplashScreen(),
     );
   }
 }
