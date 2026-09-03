@@ -1,6 +1,7 @@
-import 'package:barakaa/features/auth/register_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:barakaa/routes/app_routes.dart';
 import '../../../app/theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,6 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     // Firebase Authentication will be connected here later.
+    context.go(AppRoutes.home);
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Firebase login will be connected soon.')),
     );
@@ -289,11 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const RegisterScreen(),
-                                ),
-                              );
+                              context.push(AppRoutes.register);
                             },
                             child: const Text(
                               'Create Account',
