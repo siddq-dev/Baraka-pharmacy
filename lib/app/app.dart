@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'theme/app_theme.dart';
-import '../features/splash/presentation/splash_screen.dart';
+import '../features/splash/splash_screen.dart';
 
 class BarakaPharmacyApp extends StatelessWidget {
   const BarakaPharmacyApp({super.key});

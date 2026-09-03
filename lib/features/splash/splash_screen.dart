@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,6 +21,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   late final Animation<double> _logoScale;
   late final Animation<double> _logoOpacity;
+
+   Timer? _splashTimer;
 
   @override
   void initState() {
@@ -53,10 +57,45 @@ class _SplashScreenState extends State<SplashScreen>
     )..repeat();
 
     _logoController.forward();
+
+_splashTimer = Timer(
+  const Duration(seconds: 3),
+  () {
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (
+          context,
+          animation,
+          secondaryAnimation,
+        ) =>
+            const LoginScreen(),
+        transitionsBuilder: (
+          context,
+          animation,
+          secondaryAnimation,
+          child,
+        ) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(
+          milliseconds: 500,
+        ),
+      ),
+    );
+  },
+);
+
   }
 
   @override
   void dispose() {
+_splashTimer?.cancel();
+
     _logoController.dispose();
     _ringController.dispose();
     _dotsController.dispose();
