@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:barakaa/routes/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,10 +18,22 @@ class _HomeScreenState extends State<HomeScreen> {
   final String _userName = 'Abual';
 
   final List<Map<String, dynamic>> _categories = [
-    {'name': 'Medicines', 'icon': Icons.medication_outlined},
-    {'name': 'Vitamins', 'icon': Icons.health_and_safety_outlined},
-    {'name': 'Personal Care', 'icon': Icons.face_retouching_natural_outlined},
-    {'name': 'Baby Care', 'icon': Icons.child_care_outlined},
+    {
+      'name': 'Medicines',
+      'icon': Icons.medication_outlined,
+    },
+    {
+      'name': 'Vitamins',
+      'icon': Icons.health_and_safety_outlined,
+    },
+    {
+      'name': 'Personal Care',
+      'icon': Icons.face_retouching_natural_outlined,
+    },
+    {
+      'name': 'Baby Care',
+      'icon': Icons.child_care_outlined,
+    },
   ];
 
   final List<Map<String, dynamic>> _popularMedicines = [
@@ -43,9 +58,29 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   void _onBottomNavigationTap(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.home);
+        break;
+
+      case 1:
+        // Cart route will be added later.
+        setState(() {
+          _selectedIndex = 1;
+        });
+        break;
+
+      case 2:
+        // Orders route will be added later.
+        setState(() {
+          _selectedIndex = 2;
+        });
+        break;
+
+      case 3:
+        context.go(AppRoutes.profile);
+        break;
+    }
   }
 
   @override
@@ -183,7 +218,10 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 6),
         const Text(
           'What are you looking for today?',
-          style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: 15,
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );
@@ -195,7 +233,9 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: AppColors.border,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -224,7 +264,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 16,
+          ),
         ),
       ),
     );
@@ -236,7 +278,10 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.brandBlue, AppColors.primary],
+          colors: [
+            AppColors.brandBlue,
+            AppColors.primary,
+          ],
         ),
         borderRadius: BorderRadius.circular(20),
       ),
@@ -272,14 +317,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       backgroundColor: Colors.white,
                       foregroundColor: AppColors.brandBlue,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: const Text(
                       'Shop Now',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -347,11 +396,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return Container(
             width: 105,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 12,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(
+                color: AppColors.border,
+              ),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -407,7 +461,9 @@ class _HomeScreenState extends State<HomeScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(
+                color: AppColors.border,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,7 +548,12 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(22, 25, 22, 22),
+              padding: const EdgeInsets.fromLTRB(
+                22,
+                25,
+                22,
+                22,
+              ),
               decoration: BoxDecoration(
                 color: AppColors.brandBlue,
                 borderRadius: const BorderRadius.only(
@@ -533,7 +594,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(height: 4),
                         Text(
                           'Your health, our priority',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -550,16 +614,17 @@ class _HomeScreenState extends State<HomeScreen> {
               selected: true,
               onTap: () {
                 Navigator.pop(context);
-                setState(() {
-                  _selectedIndex = 0;
-                });
+                context.go(AppRoutes.home);
               },
             ),
 
             _buildDrawerItem(
               icon: Icons.person_outline_rounded,
               title: 'My Profile',
-              onTap: () {},
+              onTap: () {
+                Navigator.pop(context);
+                context.go(AppRoutes.profile);
+              },
             ),
 
             _buildDrawerItem(
@@ -594,7 +659,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const Spacer(),
 
-            const Divider(indent: 20, endIndent: 20),
+            const Divider(
+              indent: 20,
+              endIndent: 20,
+            ),
 
             _buildDrawerItem(
               icon: Icons.settings_outlined,
@@ -632,24 +700,35 @@ class _HomeScreenState extends State<HomeScreen> {
     Color? titleColor,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 2,
+      ),
       child: ListTile(
         onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        tileColor: selected ? AppColors.primary.withOpacity(0.09) : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        tileColor: selected
+            ? AppColors.primary.withOpacity(0.09)
+            : null,
         leading: Icon(
           icon,
-          color:
-              iconColor ??
-              (selected ? AppColors.primary : AppColors.textSecondary),
+          color: iconColor ??
+              (selected
+                  ? AppColors.primary
+                  : AppColors.textSecondary),
         ),
         title: Text(
           title,
           style: TextStyle(
-            color:
-                titleColor ??
-                (selected ? AppColors.primary : AppColors.textPrimary),
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: titleColor ??
+                (selected
+                    ? AppColors.primary
+                    : AppColors.textPrimary),
+            fontWeight: selected
+                ? FontWeight.w700
+                : FontWeight.w500,
           ),
         ),
       ),
@@ -690,7 +769,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlaceholderPage() {
-    final titles = ['Home', 'My Cart', 'My Orders', 'My Profile'];
+    final titles = [
+      'Home',
+      'My Cart',
+      'My Orders',
+      'My Profile',
+    ];
 
     final icons = [
       Icons.home_rounded,
@@ -703,7 +787,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icons[_selectedIndex], size: 70, color: AppColors.primary),
+          Icon(
+            icons[_selectedIndex],
+            size: 70,
+            color: AppColors.primary,
+          ),
           const SizedBox(height: 15),
           Text(
             titles[_selectedIndex],
@@ -716,7 +804,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 8),
           const Text(
             'This page will be added next.',
-            style: TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
