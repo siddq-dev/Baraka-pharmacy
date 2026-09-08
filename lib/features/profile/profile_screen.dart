@@ -54,7 +54,7 @@ class ProfileScreen extends StatelessWidget {
                 title: 'My Orders',
                 subtitle: 'View your orders and order history',
                 onTap: () {
-                  // Orders screen will be connected later.
+                  context.push(AppRoutes.orders);
                 },
               ),
 
@@ -63,7 +63,7 @@ class ProfileScreen extends StatelessWidget {
                 title: 'Wishlist',
                 subtitle: 'View your saved medicines',
                 onTap: () {
-                  // Wishlist screen will be connected later.
+                  context.push(AppRoutes.wishlist);
                 },
               ),
 
@@ -78,7 +78,7 @@ class ProfileScreen extends StatelessWidget {
                 title: 'Settings',
                 subtitle: 'Manage your app preferences',
                 onTap: () {
-                  // Settings screen will be added later.
+                  context.push(AppRoutes.settings);
                 },
               ),
 
@@ -87,13 +87,13 @@ class ProfileScreen extends StatelessWidget {
                 title: 'Help & Support',
                 subtitle: 'Get help with Barakaa Pharmacy',
                 onTap: () {
-                  // Help & Support screen will be added later.
+                  context.push(AppRoutes.helpsupport);
                 },
               ),
 
               const SizedBox(height: 24),
 
-              _buildLogoutButton(),
+              _buildLogoutButton(context),
 
               const SizedBox(height: 20),
 
@@ -248,14 +248,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLogoutButton() {
+  Widget _buildLogoutButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: () {
-          // Firebase logout will be connected later.
-        },
+        onPressed: () => _showLogoutDialog(context),
         icon: const Icon(Icons.logout_rounded, size: 20),
         label: const Text(
           'Logout',
@@ -269,6 +267,62 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Log Out',
+            style: TextStyle(
+              color: AppColors.brandBlue,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to log out?',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+            ),
+          ),
+          actions: [
+            TextButton(
+              autofocus: true,
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                context.go(AppRoutes.login);
+              },
+              child: const Text(
+                'Confirm',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
