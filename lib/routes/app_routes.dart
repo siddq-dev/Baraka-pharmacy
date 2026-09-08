@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+// Customer screens
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/home/home_screen.dart';
@@ -12,40 +13,105 @@ import '../features/profile/settings_screen.dart';
 import '../features/profile/help_support_screen.dart';
 import '../features/cart/cart_screen.dart';
 
+// Super Admin screens
+import '../superadmin/admins/admin_management_screen.dart';
+import '../superadmin/analytics/analytics_screen.dart';
+import '../superadmin/customers/customers_screen.dart';
+import '../superadmin/dashboard/superadmin_dashboard_screen.dart';
+import '../superadmin/delivery/delivery_partners_screen.dart';
+import '../superadmin/doctors/doctor_management_screen.dart';
+import '../superadmin/inventory/inventory_screen.dart';
+import '../superadmin/layout/admin_shell.dart';
+import '../superadmin/orders/admin_orders_screen.dart';
+import '../superadmin/products/product_management_screen.dart';
+import '../superadmin/settings/admin_settings_screen.dart';
+
 class AppRoutes {
+  // ============================================================
+  // CUSTOMER ROUTES
+  // ============================================================
+
   static const String splash = '/';
+
   static const String login = '/login';
+
   static const String register = '/register';
+
   static const String home = '/home';
+
   static const String profile = '/profile';
+
   static const String editProfile = '/profile/edit';
+
   static const String orders = '/orders';
+
   static const String wishlist = '/profile/wishlist';
+
   static const String settings = '/profile/settings';
+
   static const String helpsupport = '/profile/help-support';
+
   static const String cart = '/cart';
+
+  // ============================================================
+  // SUPER ADMIN ROUTES
+  // ============================================================
+
+  static const String superAdmin = '/superadmin';
+
+  static const String superAdminManagement = '/superadmin/admin-management';
+
+  static const String superAdminProductManagement =
+      '/superadmin/product-management';
+
+  static const String superAdminInventory = '/superadmin/inventory';
+
+  static const String superAdminOrders = '/superadmin/orders';
+
+  static const String superAdminCustomers = '/superadmin/customers';
+
+  static const String superAdminDoctorManagement =
+      '/superadmin/doctor-management';
+
+  static const String superAdminDeliveryPartners =
+      '/superadmin/delivery-partners';
+
+  static const String superAdminAnalytics = '/superadmin/analytics';
+
+  static const String superAdminSettings = '/superadmin/settings';
+
+  // ============================================================
+  // ROUTER
+  // ============================================================
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
+
     routes: [
+      // ========================================================
+      // CUSTOMER APP
+      // ========================================================
       GoRoute(
         path: splash,
         builder: (context, state) {
           return const SplashScreen();
         },
       ),
+
       GoRoute(
         path: login,
         builder: (context, state) {
           return const LoginScreen();
         },
       ),
+
       GoRoute(
         path: register,
         builder: (context, state) {
           return const RegisterScreen();
         },
       ),
+
       GoRoute(
         path: home,
         builder: (context, state) {
@@ -94,6 +160,7 @@ class AppRoutes {
           return const HelpSupportScreen();
         },
       ),
+
       GoRoute(
         path: cart,
         builder: (context, state) {
@@ -102,4 +169,105 @@ class AppRoutes {
       ),
     ],
   );
+
+  // ========================================================
+  // SUPER ADMIN APP
+  // ========================================================
+
+  //     ShellRoute(
+  //       builder: (
+  //         context,
+  //         state,
+  //         child,
+  //       ) {
+  //         return AdminShell(
+  //           child: child,
+  //         );
+  //       },
+
+  //       routes: [
+
+  //         // Dashboard
+  //         GoRoute(
+  //           path: superAdmin,
+  //           builder: (context, state) {
+  //             return const AdminDashboardScreen();
+  //           },
+  //         ),
+
+  //         // Admin Management
+  //         GoRoute(
+  //           path: superAdminManagement,
+  //           builder: (context, state) {
+  //             return const AdminManagementScreen();
+  //           },
+  //         ),
+
+  //         // Product Management
+  //         GoRoute(
+  //           path: superAdminProductManagement,
+  //           builder: (context, state) {
+  //             return const ProductManagementScreen();
+  //           },
+  //         ),
+
+  //         // Inventory
+  //         GoRoute(
+  //           path: superAdminInventory,
+  //           builder: (context, state) {
+  //             return const InventoryScreen();
+  //           },
+  //         ),
+
+  //         // Orders
+  //         GoRoute(
+  //           path: superAdminOrders,
+  //           builder: (context, state) {
+  //             return const AdminOrdersScreen();
+  //           },
+  //         ),
+
+  //         // Customers
+  //         GoRoute(
+  //           path: superAdminCustomers,
+  //           builder: (context, state) {
+  //             return const CustomersScreen();
+  //           },
+  //         ),
+
+  //         // Doctor Management
+  //         GoRoute(
+  //           path: superAdminDoctorManagement,
+  //           builder: (context, state) {
+  //             return const DoctorManagementScreen();
+  //           },
+  //         ),
+
+  //         // Delivery Partners
+  //         GoRoute(
+  //           path: superAdminDeliveryPartners,
+  //           builder: (context, state) {
+  //             return const DeliveryPartnersScreen();
+  //           },
+  //         ),
+
+  //         // Analytics
+  //         GoRoute(
+  //           path: superAdminAnalytics,
+  //           builder: (context, state) {
+  //             return const AnalyticsScreen();
+  //           },
+  //         ),
+
+  //         // Settings
+  //         GoRoute(
+  //           path: superAdminSettings,
+  //           builder: (context, state) {
+  //             return const AdminSettingsScreen();
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //   ],
+  // );
 }
