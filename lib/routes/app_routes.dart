@@ -21,10 +21,19 @@ import '../superadmin/dashboard/superadmin_dashboard_screen.dart';
 import '../superadmin/delivery/delivery_partners_screen.dart';
 import '../superadmin/doctors/doctor_management_screen.dart';
 import '../superadmin/inventory/inventory_screen.dart';
-import '../superadmin/layout/admin_shell.dart';
+import '../superadmin/layout/superadmin_shell.dart';
 import '../superadmin/orders/admin_orders_screen.dart';
 import '../superadmin/products/product_management_screen.dart';
 import '../superadmin/settings/admin_settings_screen.dart';
+
+// Admin screens
+import '../admin/admin_dashboard_screen.dart';
+
+// Doctor screens
+import '../doctor/doctor_dashboard_screen.dart';
+
+// Delivery screens
+import '../delivery/delivery_dashboard_screen.dart';
 
 class AppRoutes {
   // ============================================================
@@ -57,7 +66,7 @@ class AppRoutes {
   // SUPER ADMIN ROUTES
   // ============================================================
 
-  static const String superAdmin = '/superadmin';
+  static const String superAdminDashboard = '/superadmin';
 
   static const String superAdminManagement = '/superadmin/admin-management';
 
@@ -79,6 +88,16 @@ class AppRoutes {
   static const String superAdminAnalytics = '/superadmin/analytics';
 
   static const String superAdminSettings = '/superadmin/settings';
+
+  // ============================================================
+  // OTHER ROLE ROUTES (placeholders until real dashboards exist)
+  // ============================================================
+
+  static const String admin = '/admin';
+
+  static const String doctor = '/doctor';
+
+  static const String delivery = '/delivery';
 
   // ============================================================
   // ROUTER
@@ -167,107 +186,127 @@ class AppRoutes {
           return const CartScreen();
         },
       ),
+
+      // ========================================================
+      // SUPER ADMIN APP
+      // ========================================================
+      ShellRoute(
+        builder: (context, state, child) {
+          return SuperAdminShell(child: child);
+        },
+
+        routes: [
+          // Dashboard
+          GoRoute(
+            path: superAdminDashboard,
+            builder: (context, state) {
+              return const SuperAdminDashboardScreen();
+            },
+          ),
+
+          // Admin Management
+          GoRoute(
+            path: superAdminManagement,
+            builder: (context, state) {
+              return const AdminManagementScreen();
+            },
+          ),
+
+          // Product Management
+          GoRoute(
+            path: superAdminProductManagement,
+            builder: (context, state) {
+              return const ProductManagementScreen();
+            },
+          ),
+
+          // Inventory
+          GoRoute(
+            path: superAdminInventory,
+            builder: (context, state) {
+              return const InventoryScreen();
+            },
+          ),
+
+          // Orders
+          GoRoute(
+            path: superAdminOrders,
+            builder: (context, state) {
+              return const AdminOrdersScreen();
+            },
+          ),
+
+          // Customers
+          GoRoute(
+            path: superAdminCustomers,
+            builder: (context, state) {
+              return const CustomersScreen();
+            },
+          ),
+
+          // Doctor Management
+          GoRoute(
+            path: superAdminDoctorManagement,
+            builder: (context, state) {
+              return const DoctorManagementScreen();
+            },
+          ),
+
+          // Delivery Partners
+          GoRoute(
+            path: superAdminDeliveryPartners,
+            builder: (context, state) {
+              return const DeliveryPartnersScreen();
+            },
+          ),
+
+          // Analytics
+          GoRoute(
+            path: superAdminAnalytics,
+            builder: (context, state) {
+              return const AnalyticsScreen();
+            },
+          ),
+
+          // Settings
+          GoRoute(
+            path: superAdminSettings,
+            builder: (context, state) {
+              return const AdminSettingsScreen();
+            },
+          ),
+        ],
+      ),
+
+      // ========================================================
+      // ADMIN APP (placeholder — replace with real dashboard + shell)
+      // ========================================================
+      GoRoute(
+        path: admin,
+        builder: (context, state) {
+          return const AdminDashboardScreen();
+        },
+      ),
+
+      // ========================================================
+      // DOCTOR APP (placeholder — replace with real dashboard + shell)
+      // ========================================================
+      GoRoute(
+        path: doctor,
+        builder: (context, state) {
+          return const DoctorDashboardScreen();
+        },
+      ),
+
+      // ========================================================
+      // DELIVERY APP (placeholder — replace with real dashboard + shell)
+      // ========================================================
+      GoRoute(
+        path: delivery,
+        builder: (context, state) {
+          return const DeliveryDashboardScreen();
+        },
+      ),
     ],
   );
-
-  // ========================================================
-  // SUPER ADMIN APP
-  // ========================================================
-
-  //     ShellRoute(
-  //       builder: (
-  //         context,
-  //         state,
-  //         child,
-  //       ) {
-  //         return AdminShell(
-  //           child: child,
-  //         );
-  //       },
-
-  //       routes: [
-
-  //         // Dashboard
-  //         GoRoute(
-  //           path: superAdmin,
-  //           builder: (context, state) {
-  //             return const AdminDashboardScreen();
-  //           },
-  //         ),
-
-  //         // Admin Management
-  //         GoRoute(
-  //           path: superAdminManagement,
-  //           builder: (context, state) {
-  //             return const AdminManagementScreen();
-  //           },
-  //         ),
-
-  //         // Product Management
-  //         GoRoute(
-  //           path: superAdminProductManagement,
-  //           builder: (context, state) {
-  //             return const ProductManagementScreen();
-  //           },
-  //         ),
-
-  //         // Inventory
-  //         GoRoute(
-  //           path: superAdminInventory,
-  //           builder: (context, state) {
-  //             return const InventoryScreen();
-  //           },
-  //         ),
-
-  //         // Orders
-  //         GoRoute(
-  //           path: superAdminOrders,
-  //           builder: (context, state) {
-  //             return const AdminOrdersScreen();
-  //           },
-  //         ),
-
-  //         // Customers
-  //         GoRoute(
-  //           path: superAdminCustomers,
-  //           builder: (context, state) {
-  //             return const CustomersScreen();
-  //           },
-  //         ),
-
-  //         // Doctor Management
-  //         GoRoute(
-  //           path: superAdminDoctorManagement,
-  //           builder: (context, state) {
-  //             return const DoctorManagementScreen();
-  //           },
-  //         ),
-
-  //         // Delivery Partners
-  //         GoRoute(
-  //           path: superAdminDeliveryPartners,
-  //           builder: (context, state) {
-  //             return const DeliveryPartnersScreen();
-  //           },
-  //         ),
-
-  //         // Analytics
-  //         GoRoute(
-  //           path: superAdminAnalytics,
-  //           builder: (context, state) {
-  //             return const AnalyticsScreen();
-  //           },
-  //         ),
-
-  //         // Settings
-  //         GoRoute(
-  //           path: superAdminSettings,
-  //           builder: (context, state) {
-  //             return const AdminSettingsScreen();
-  //           },
-  //         ),
-  //       ],
-  //     ),
-  //   ],
-  // );
 }

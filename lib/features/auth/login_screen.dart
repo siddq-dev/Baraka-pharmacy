@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
-import '../../app/theme/app_colors.dart';
+import '../../../app/theme/app_colors.dart';
+import '/providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,30 +27,49 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
+    FocusScope.of(context).unfocus();
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Firebase Authentication will be connected here later.
+    final authProvider = context.read<AuthProvider>();
 
-    context.go('/home');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Firebase login will be connected soon.')),
+    final success = await authProvider.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
     );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Login successful')));
+
+      context.go(authProvider.homeRoute);
+      return;
+    }
+
+    final message =
+        authProvider.errorMessage ?? 'Unable to login. Please try again.';
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final isLoading = context.watch<AuthProvider>().isLoading;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
-            // Soft background decorations.
             Positioned(
               top: -90,
               right: -90,
@@ -134,11 +155,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
+                          final email = value?.trim() ?? '';
+
+                          if (email.isEmpty) {
                             return 'Please enter your email';
                           }
 
-                          if (!value.contains('@')) {
+                          final emailRegex = RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          );
+
+                          if (!emailRegex.hasMatch(email)) {
                             return 'Please enter a valid email';
                           }
 
@@ -170,11 +197,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: AppColors.primary,
                           ),
                           suffixIcon: IconButton(
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_outlined
@@ -194,6 +223,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           return null;
                         },
+                        onFieldSubmitted: (_) {
+                          if (!isLoading) {
+                            _login();
+                          }
+                        },
                       ),
 
                       const SizedBox(height: 12),
@@ -201,9 +235,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            // Forgot password screen will be added later.
-                          },
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  // Forgot password will be connected next.
+                                },
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(
@@ -220,14 +256,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity,
                         height: 54,
                         child: ElevatedButton(
-                          onPressed: _login,
-                          child: const Text(
-                            'Login',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          onPressed: isLoading ? null : _login,
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
                       ),
 
@@ -257,9 +302,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity,
                         height: 54,
                         child: OutlinedButton.icon(
-                          onPressed: () {
-                            // Google authentication will be added later.
-                          },
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  // Google authentication will be added later.
+                                },
                           icon: const Icon(
                             Icons.g_mobiledata_rounded,
                             size: 30,
@@ -291,9 +338,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(color: AppColors.textSecondary),
                           ),
                           GestureDetector(
-                            onTap: () {
-                              context.push('/register');
-                            },
+                            onTap: isLoading
+                                ? null
+                                : () {
+                                    context.push('/register');
+                                  },
                             child: const Text(
                               'Create Account',
                               style: TextStyle(

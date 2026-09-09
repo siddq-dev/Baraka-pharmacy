@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "237157165536",
+    "project_id": "barakaa-pharmacy",
+    "storage_bucket": "barakaa-pharmacy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:237157165536:android:897c7d5fcfaa840501e385",
+        "android_client_info": {
+          "package_name": "com.example.barakaa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBq3ITi1wGuS-aBDC6D-wEqxoYYTQyQpT4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '/providers/auth_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -31,35 +34,76 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _register() {
+  Future<void> _register() async {
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Firebase registration will be connected here later.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Registration will be connected to Firebase soon.',
-        ),
-      ),
+    final authProvider = context.read<AuthProvider>();
+
+    final contactNumber = _contactController.text.replaceAll(RegExp(r'\D'), '');
+
+    final success = await authProvider.register(
+      email: _emailController.text.trim(),
+      contactNumber: contactNumber,
+      password: _passwordController.text,
     );
+
+    if (!mounted) return;
+
+    if (success) {
+      /*
+       * Firebase automatically signs the user in after registration.
+       *
+       * Since your current app flow is:
+       *
+       * Register → Login → Home
+       *
+       * we sign the user out here so the Login screen
+       * can perform the actual login.
+       */
+      await authProvider.logout();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account created successfully. Please login.'),
+        ),
+      );
+
+      context.go('/login');
+      return;
+    }
+
+    final message =
+        authProvider.errorMessage ??
+        'Unable to create account. Please try again.';
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _goToLogin() {
-    Navigator.of(context).pop();
+    if (context.read<AuthProvider>().isLoading) {
+      return;
+    }
+
+    context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<AuthProvider>().isLoading;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
-            // Top decorative circle.
             Positioned(
               top: -90,
               right: -90,
@@ -73,7 +117,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
 
-            // Bottom decorative circle.
             Positioned(
               bottom: -100,
               left: -90,
@@ -88,18 +131,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
 
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                24,
-                20,
-                24,
-                30,
-              ),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildBackButton(),
+                    _buildBackButton(isLoading),
 
                     const SizedBox(height: 12),
 
@@ -142,9 +180,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [
-                        AutofillHints.email,
-                      ],
+                      autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         hintText: 'Enter your email ID',
                         prefixIcon: Icon(
@@ -181,9 +217,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _contactController,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [
-                        AutofillHints.telephoneNumber,
-                      ],
+                      autofillHints: const [AutofillHints.telephoneNumber],
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
                           RegExp(r'[0-9+\-\s]'),
@@ -222,9 +256,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [
-                        AutofillHints.newPassword,
-                      ],
+                      autofillHints: const [AutofillHints.password],
                       decoration: InputDecoration(
                         hintText: 'Enter your password',
                         prefixIcon: const Icon(
@@ -232,11 +264,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           color: AppColors.primary,
                         ),
                         suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
                           icon: Icon(
                             _obscurePassword
                                 ? Icons.visibility_outlined
@@ -270,9 +304,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
                       textInputAction: TextInputAction.done,
-                      autofillHints: const [
-                        AutofillHints.newPassword,
-                      ],
+                      autofillHints: const [AutofillHints.newPassword],
                       decoration: InputDecoration(
                         hintText: 'Confirm your password',
                         prefixIcon: const Icon(
@@ -280,12 +312,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           color: AppColors.primary,
                         ),
                         suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _obscureConfirmPassword =
-                                  !_obscureConfirmPassword;
-                            });
-                          },
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
+                                  });
+                                },
                           icon: Icon(
                             _obscureConfirmPassword
                                 ? Icons.visibility_outlined
@@ -301,8 +335,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           return 'Please confirm your password';
                         }
 
-                        if (confirmPassword !=
-                            _passwordController.text) {
+                        if (confirmPassword != _passwordController.text) {
                           return 'Passwords do not match';
                         }
 
@@ -316,14 +349,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: _register,
-                        child: const Text(
-                          'Create Account',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        onPressed: isLoading ? null : _register,
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Create Account',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                       ),
                     ),
 
@@ -334,12 +376,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const Text(
                           'Already have an account? ',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                          ),
+                          style: TextStyle(color: AppColors.textSecondary),
                         ),
                         GestureDetector(
-                          onTap: _goToLogin,
+                          onTap: isLoading ? null : _goToLogin,
                           child: const Text(
                             'Login',
                             style: TextStyle(
@@ -362,14 +402,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildBackButton() {
+  Widget _buildBackButton(bool isLoading) {
     return IconButton(
-      onPressed: _goToLogin,
+      onPressed: isLoading ? null : _goToLogin,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(
-        minWidth: 44,
-        minHeight: 44,
-      ),
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       icon: const Icon(
         Icons.arrow_back_ios_new,
         size: 20,
