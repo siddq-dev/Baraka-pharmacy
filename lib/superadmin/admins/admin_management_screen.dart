@@ -144,10 +144,14 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
           ),
         ),
 
-        ElevatedButton.icon(
-          onPressed: _showAddAdminDialog,
-          icon: const Icon(Icons.add, size: 19),
-          label: const Text('Add Admin'),
+        SizedBox(
+          width: 140,
+          height: 44,
+          child: ElevatedButton.icon(
+            onPressed: _showAddAdminDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Admin'),
+          ),
         ),
       ],
     );

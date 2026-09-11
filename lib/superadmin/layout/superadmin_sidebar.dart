@@ -219,7 +219,7 @@ class SuperAdminSidebar extends StatelessWidget {
     required String currentLocation,
   }) {
     final bool isSelected =
-        currentLocation == route || currentLocation.startsWith('$route/');
+        currentLocation == route; // <-- exact match only, removed startsWith
 
     return Material(
       color: Colors.transparent,
