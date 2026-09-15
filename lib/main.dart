@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 
 import 'app/app.dart';
 import 'firebase_options.dart';
-import '/providers/auth_provider.dart';
-import '/providers/add_product_provider.dart';
+import 'providers/auth_provider.dart';
+import 'providers/add_product_provider.dart';
+import 'providers/product_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,8 +16,15 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+
+        ChangeNotifierProvider<addProductProvider>(
+          create: (_) => addProductProvider(),
+        ),
+
+        ChangeNotifierProvider<ProductProvider>(
+          create: (_) => ProductProvider()..startListening(),
+        ),
       ],
       child: const BarakaPharmacyApp(),
     ),

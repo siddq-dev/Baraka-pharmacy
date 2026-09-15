@@ -12,6 +12,7 @@ import '../features/profile/wishlist_page.dart';
 import '../features/profile/settings_screen.dart';
 import '../features/profile/help_support_screen.dart';
 import '../features/cart/cart_screen.dart';
+import '../features/shop/shop_screen.dart';
 
 // Super Admin screens
 import '../superadmin/admins/admin_management_screen.dart';
@@ -49,6 +50,8 @@ class AppRoutes {
   static const String register = '/register';
 
   static const String home = '/home';
+
+  static const String shop = '/shop';
 
   static const String profile = '/profile';
 
@@ -143,6 +146,8 @@ class AppRoutes {
           return const HomeScreen();
         },
       ),
+
+      GoRoute(path: '/shop', builder: (context, state) => const ShopScreen()),
 
       GoRoute(
         path: profile,

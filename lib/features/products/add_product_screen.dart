@@ -55,7 +55,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   Future<void> _pickImages() async {
-    final ProductProvider productProvider = context.read<ProductProvider>();
+    final addProductProvider productProvider = context
+        .read<addProductProvider>();
 
     await productProvider.pickImages();
 
@@ -97,7 +98,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
-    final productProvider = context.read<ProductProvider>();
+    final productProvider = context.read<addProductProvider>();
 
     if (productProvider.selectedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -555,7 +556,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     return _buildSectionCard(
       title: 'Product Images',
       icon: Icons.image_outlined,
-      child: Consumer<ProductProvider>(
+      child: Consumer<addProductProvider>(
         builder: (context, productProvider, child) {
           final List<XFile> images = productProvider.selectedImages;
 
@@ -758,7 +759,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   // ------------------------------------------------------------
 
   Widget _buildAddButton() {
-    return Consumer<ProductProvider>(
+    return Consumer<addProductProvider>(
       builder: (context, productProvider, child) {
         return Align(
           alignment: Alignment.centerRight,

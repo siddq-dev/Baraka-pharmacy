@@ -5,11 +5,11 @@ import '../models/add_product_model.dart';
 import '../repositories/add_product_repository.dart';
 import '../services/image_picker_service.dart';
 
-class ProductProvider extends ChangeNotifier {
+class addProductProvider extends ChangeNotifier {
   final ProductRepository _productRepository;
   final ImagePickerService _imagePickerService;
 
-  ProductProvider({
+  addProductProvider({
     ProductRepository? productRepository,
     ImagePickerService? imagePickerService,
   }) : _productRepository = productRepository ?? ProductRepository(),

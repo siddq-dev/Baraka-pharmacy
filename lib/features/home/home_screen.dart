@@ -289,7 +289,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(
                   height: 38,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      context.go('/shop');
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: AppColors.brandBlue,
