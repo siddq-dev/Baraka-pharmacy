@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
+import 'package:go_router/go_router.dart';
 import '../theme/admin_colors.dart';
+import '../../routes/app_routes.dart';
 
 class ProductManagementScreen extends StatefulWidget {
   const ProductManagementScreen({super.key});
@@ -16,62 +18,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   String _selectedCategory = 'All';
   String _selectedStatus = 'All';
 
-  final List<Map<String, dynamic>> _products = [
-    {
-      'id': 'PRD001',
-      'name': 'Paracetamol 500mg',
-      'category': 'Medicines',
-      'price': 25.0,
-      'stock': 120,
-      'status': 'Active',
-      'prescriptionRequired': false,
-    },
-    {
-      'id': 'PRD002',
-      'name': 'Vitamin C 500mg',
-      'category': 'Vitamins',
-      'price': 180.0,
-      'stock': 85,
-      'status': 'Active',
-      'prescriptionRequired': false,
-    },
-    {
-      'id': 'PRD003',
-      'name': 'First Aid Kit',
-      'category': 'Personal Care',
-      'price': 299.0,
-      'stock': 42,
-      'status': 'Active',
-      'prescriptionRequired': false,
-    },
-    {
-      'id': 'PRD004',
-      'name': 'Amoxicillin 500mg',
-      'category': 'Antibiotics',
-      'price': 145.0,
-      'stock': 18,
-      'status': 'Active',
-      'prescriptionRequired': true,
-    },
-    {
-      'id': 'PRD005',
-      'name': 'Cough Syrup',
-      'category': 'Medicines',
-      'price': 95.0,
-      'stock': 7,
-      'status': 'Active',
-      'prescriptionRequired': false,
-    },
-    {
-      'id': 'PRD006',
-      'name': 'Baby Lotion',
-      'category': 'Baby Care',
-      'price': 220.0,
-      'stock': 0,
-      'status': 'Inactive',
-      'prescriptionRequired': false,
-    },
-  ];
+  // [Firestore Integration]: Hardcoded _products list removed in favor of live Firestore streaming.
 
   @override
   void dispose() {
@@ -79,14 +26,19 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredProducts {
+  // [Firestore Integration]: Filter live products mapped from Firestore QueryDocumentSnapshots
+  List<Map<String, dynamic>> _getFilteredProducts(
+    List<Map<String, dynamic>> products,
+  ) {
     final query = _searchController.text.trim().toLowerCase();
 
-    return _products.where((product) {
+    return products.where((product) {
       final matchesSearch =
           query.isEmpty ||
           product['name'].toString().toLowerCase().contains(query) ||
           product['id'].toString().toLowerCase().contains(query) ||
+          (product['productId']?.toString().toLowerCase().contains(query) ??
+              false) ||
           product['category'].toString().toLowerCase().contains(query);
 
       final matchesCategory =
@@ -100,40 +52,97 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     }).toList();
   }
 
-  int get _activeProducts =>
-      _products.where((product) => product['status'] == 'Active').length;
+  // [Firestore Integration]: Derive active count from live product stock
+  int _getActiveProducts(List<Map<String, dynamic>> products) =>
+      products.where((product) => product['status'] == 'Active').length;
 
-  int get _inactiveProducts =>
-      _products.where((product) => product['status'] == 'Inactive').length;
-
-  int get _lowStockProducts => _products
+  // [Firestore Integration]: Calculate low stock count (1..10) from live product quantity
+  int _getLowStockProducts(List<Map<String, dynamic>> products) => products
       .where((product) => product['stock'] > 0 && product['stock'] <= 10)
       .length;
 
-  int get _outOfStockProducts =>
-      _products.where((product) => product['stock'] == 0).length;
+  // [Firestore Integration]: Calculate out of stock count (0) from live product quantity
+  int _getOutOfStockProducts(List<Map<String, dynamic>> products) =>
+      products.where((product) => product['stock'] == 0).length;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AdminColors.background,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 800;
+        // [Firestore Integration]: Real-time StreamBuilder listening to the 'products' collection
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream:
+              FirebaseFirestore.instance.collection('products').snapshots(),
+          builder: (context, snapshot) {
+            // [Firestore Integration]: Explicitly handle loading state
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.all(isMobile ? 16 : 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(isMobile),
-                  const SizedBox(height: 24),
-                  _buildSummaryCards(isMobile),
-                  const SizedBox(height: 24),
-                  _buildProductSection(isMobile),
-                ],
-              ),
+            // [Firestore Integration]: Explicitly handle error state using _buildEmptyState container
+            if (snapshot.hasError) {
+              return Center(
+                child: _buildEmptyState(
+                  title: 'Error loading products',
+                  subtitle: snapshot.error.toString(),
+                ),
+              );
+            }
+
+            // [Firestore Integration]: Map Firestore docs to the Map shape expected by the UI
+            final List<Map<String, dynamic>> products =
+                (snapshot.data?.docs ?? []).map((doc) {
+                  final data = doc.data();
+                  final int quantity =
+                      (data['quantity'] as num?)?.toInt() ?? 0;
+                  final double price =
+                      (data['price'] as num?)?.toDouble() ?? 0.0;
+                  final double salePrice =
+                      (data['salePrice'] as num?)?.toDouble() ?? 0.0;
+                  final String medicineName =
+                      data['medicineName'] as String? ?? '';
+                  final String type = data['type'] as String? ?? '';
+                  final String productId = data['productId'] as String? ?? '';
+
+                  return <String, dynamic>{
+                    'id': doc.id,
+                    'productId': productId,
+                    'name': medicineName,
+                    'category': type, // Mapped from 'type'
+                    'price': price,
+                    'salePrice': salePrice,
+                    'stock': quantity, // Mapped from 'quantity'
+                    'status': quantity > 0 ? 'Active' : 'Inactive', // Derived status
+                    'prescriptionRequired': false, // Defaulted to false
+                    'brandName': data['brandName'] as String? ?? '',
+                    'chemicalName': data['chemicalName'] as String? ?? '',
+                    'description': data['description'] as String? ?? '',
+                    'location': data['location'] as String? ?? '',
+                    'imageUrls': _extractImageUrls(
+                      data['imageUrls'] ?? data['imageUrl'],
+                    ),
+                  };
+                }).toList();
+
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 800;
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.all(isMobile ? 16 : 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(isMobile),
+                      const SizedBox(height: 24),
+                      _buildSummaryCards(isMobile, products),
+                      const SizedBox(height: 24),
+                      _buildProductSection(isMobile, products),
+                    ],
+                  ),
+                );
+              },
             );
           },
         ),
@@ -162,7 +171,9 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         Align(
           alignment: isMobile ? Alignment.centerLeft : Alignment.centerRight,
           child: ElevatedButton.icon(
-            onPressed: _showAddProductDialog,
+            onPressed: () {
+              context.push(AppRoutes.addproduct);
+            },
             icon: const Icon(Icons.add),
             label: const Text('Add Product'),
           ),
@@ -171,29 +182,32 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  Widget _buildSummaryCards(bool isMobile) {
+  Widget _buildSummaryCards(
+    bool isMobile,
+    List<Map<String, dynamic>> products,
+  ) {
     final cards = [
       _summaryCard(
         title: 'Total Products',
-        value: '${_products.length}',
+        value: '${products.length}',
         icon: Icons.inventory_2_outlined,
         iconColor: AdminColors.info,
       ),
       _summaryCard(
         title: 'Active Products',
-        value: '$_activeProducts',
+        value: '${_getActiveProducts(products)}',
         icon: Icons.check_circle_outline,
         iconColor: AdminColors.success,
       ),
       _summaryCard(
         title: 'Low Stock',
-        value: '$_lowStockProducts',
+        value: '${_getLowStockProducts(products)}',
         icon: Icons.warning_amber_outlined,
         iconColor: AdminColors.warning,
       ),
       _summaryCard(
         title: 'Out of Stock',
-        value: '$_outOfStockProducts',
+        value: '${_getOutOfStockProducts(products)}',
         icon: Icons.remove_shopping_cart_outlined,
         iconColor: AdminColors.danger,
       ),
@@ -284,7 +298,12 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  Widget _buildProductSection(bool isMobile) {
+  Widget _buildProductSection(
+    bool isMobile,
+    List<Map<String, dynamic>> products,
+  ) {
+    final filtered = _getFilteredProducts(products);
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(isMobile ? 14 : 20),
@@ -301,19 +320,19 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                 ),
               ),
             if (!isMobile) const SizedBox(height: 18),
-            _buildFilters(isMobile),
+            _buildFilters(isMobile, products),
             const SizedBox(height: 18),
             if (isMobile)
-              _buildMobileProductList()
+              _buildMobileProductList(filtered)
             else
-              _buildDesktopProductTable(),
+              _buildDesktopProductTable(filtered),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilters(bool isMobile) {
+  Widget _buildFilters(bool isMobile, List<Map<String, dynamic>> products) {
     if (isMobile) {
       return Column(
         children: [
@@ -328,7 +347,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _categoryDropdown()),
+              Expanded(child: _categoryDropdown(products)),
               const SizedBox(width: 10),
               Expanded(child: _statusDropdown()),
             ],
@@ -351,25 +370,37 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           ),
         ),
         const SizedBox(width: 14),
-        SizedBox(width: 180, child: _categoryDropdown()),
+        SizedBox(width: 180, child: _categoryDropdown(products)),
         const SizedBox(width: 14),
         SizedBox(width: 160, child: _statusDropdown()),
       ],
     );
   }
 
-  Widget _categoryDropdown() {
+  // [Firestore Integration]: Category dropdown built dynamically from distinct 'type' values in live snapshot
+  Widget _categoryDropdown(List<Map<String, dynamic>> products) {
+    final Set<String> distinctCategories = products
+        .map((p) => (p['category'] ?? '').toString().trim())
+        .where((cat) => cat.isNotEmpty)
+        .toSet();
+
+    final List<String> categories = [
+      'All',
+      ...distinctCategories.toList()..sort(),
+    ];
+    final String selectedValue =
+        categories.contains(_selectedCategory) ? _selectedCategory : 'All';
+
     return DropdownButtonFormField<String>(
-      initialValue: _selectedCategory,
+      key: ValueKey('category_$selectedValue'),
+      initialValue: selectedValue,
       decoration: const InputDecoration(labelText: 'Category'),
-      items: const [
-        DropdownMenuItem(value: 'All', child: Text('All Categories')),
-        DropdownMenuItem(value: 'Medicines', child: Text('Medicines')),
-        DropdownMenuItem(value: 'Vitamins', child: Text('Vitamins')),
-        DropdownMenuItem(value: 'Personal Care', child: Text('Personal Care')),
-        DropdownMenuItem(value: 'Antibiotics', child: Text('Antibiotics')),
-        DropdownMenuItem(value: 'Baby Care', child: Text('Baby Care')),
-      ],
+      items: categories.map((cat) {
+        return DropdownMenuItem<String>(
+          value: cat,
+          child: Text(cat == 'All' ? 'All Categories' : cat),
+        );
+      }).toList(),
       onChanged: (value) {
         if (value == null) return;
         setState(() {
@@ -381,6 +412,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
 
   Widget _statusDropdown() {
     return DropdownButtonFormField<String>(
+      key: ValueKey('status_$_selectedStatus'),
       initialValue: _selectedStatus,
       decoration: const InputDecoration(labelText: 'Status'),
       items: const [
@@ -397,9 +429,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  Widget _buildDesktopProductTable() {
-    final products = _filteredProducts;
-
+  Widget _buildDesktopProductTable(List<Map<String, dynamic>> products) {
     if (products.isEmpty) {
       return _buildEmptyState();
     }
@@ -423,6 +453,12 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             DataColumn(label: Text('Actions')),
           ],
           rows: products.map((product) {
+            // Display custom productId if present, else fallback to Firestore document id
+            final String displayId =
+                (product['productId'] as String? ?? '').isNotEmpty
+                    ? product['productId'] as String
+                    : product['id'] as String;
+
             return DataRow(
               cells: [
                 DataCell(
@@ -443,7 +479,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          product['id'],
+                          displayId,
                           style: const TextStyle(
                             fontSize: 12,
                             color: AdminColors.textSecondary,
@@ -456,15 +492,15 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                 DataCell(Text(product['category'])),
                 DataCell(
                   Text(
-                    '₹${product['price'].toStringAsFixed(0)}',
+                    '₹${(product['price'] as double).toStringAsFixed(0)}',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                DataCell(_stockBadge(product['stock'])),
+                DataCell(_stockBadge(product['stock'] as int)),
                 DataCell(
                   _prescriptionBadge(product['prescriptionRequired'] as bool),
                 ),
-                DataCell(_statusBadge(product['status'])),
+                DataCell(_statusBadge(product['status'] as String)),
                 DataCell(_actionMenu(product)),
               ],
             );
@@ -474,15 +510,19 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  Widget _buildMobileProductList() {
-    final products = _filteredProducts;
-
+  Widget _buildMobileProductList(List<Map<String, dynamic>> products) {
     if (products.isEmpty) {
       return _buildEmptyState();
     }
 
     return Column(
       children: products.map((product) {
+        // Display custom productId if present, else fallback to Firestore document id
+        final String displayId =
+            (product['productId'] as String? ?? '').isNotEmpty
+                ? product['productId'] as String
+                : product['id'] as String;
+
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
@@ -508,7 +548,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${product['id']} • ${product['category']}',
+                          '$displayId • ${product['category']}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AdminColors.textSecondary,
@@ -517,7 +557,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                       ],
                     ),
                   ),
-                  _statusBadge(product['status']),
+                  _statusBadge(product['status'] as String),
                   _actionMenu(product),
                 ],
               ),
@@ -527,7 +567,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   Expanded(
                     child: _mobileInfo(
                       'Price',
-                      '₹${product['price'].toStringAsFixed(0)}',
+                      '₹${(product['price'] as double).toStringAsFixed(0)}',
                     ),
                   ),
                   Expanded(
@@ -697,7 +737,10 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({
+    String title = 'No products found',
+    String subtitle = 'Try changing your search or filters.',
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 60),
       child: Center(
@@ -709,18 +752,18 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               color: AdminColors.textLight,
             ),
             const SizedBox(height: 12),
-            const Text(
-              'No products found',
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AdminColors.textPrimary,
               ),
             ),
             const SizedBox(height: 5),
-            const Text(
-              'Try changing your search or filters.',
-              style: TextStyle(color: AdminColors.textSecondary),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AdminColors.textSecondary),
             ),
           ],
         ),
@@ -728,7 +771,26 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
+  List<String> _extractImageUrls(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value
+          .map((url) => url?.toString().trim() ?? '')
+          .where((url) => url.isNotEmpty)
+          .toList();
+    }
+    if (value is String && value.trim().isNotEmpty) {
+      return [value.trim()];
+    }
+    return [];
+  }
+
   void _showProductDetails(Map<String, dynamic> product) {
+    final String productId = product['productId'] as String? ?? '';
+    final List<String> imageUrls = _extractImageUrls(product['imageUrls']);
+    final String? coverImageUrl =
+        imageUrls.isNotEmpty ? imageUrls.first : null;
+
     showDialog(
       context: context,
       builder: (context) {
@@ -736,21 +798,85 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           title: const Text('Product Details'),
           content: SizedBox(
             width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _detailRow('Product ID', product['id']),
-                _detailRow('Product Name', product['name']),
-                _detailRow('Category', product['category']),
-                _detailRow('Price', '₹${product['price'].toStringAsFixed(0)}'),
-                _detailRow('Stock', '${product['stock']} units'),
-                _detailRow('Status', product['status']),
-                _detailRow(
-                  'Prescription',
-                  product['prescriptionRequired'] ? 'Required' : 'Not Required',
-                ),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // [UI Enhancement]: Product Cover Image with loading indicator and fallback placeholder
+                  Center(
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: AdminColors.background,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AdminColors.border),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: coverImageUrl != null
+                            ? Image.network(
+                                coverImageUrl,
+                                width: 120,
+                                height: 120,
+                                fit: BoxFit.cover,
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  debugPrint(
+                                    'Image loading failed for $productId: $error | URL: $coverImageUrl',
+                                  );
+                                  return const Center(
+                                    child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      size: 38,
+                                      color: AdminColors.textLight,
+                                    ),
+                                  );
+                                },
+                              )
+                            : const Center(
+                                child: Icon(
+                                  Icons.image_not_supported_outlined,
+                                  size: 38,
+                                  color: AdminColors.textLight,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // [Display Update]: Firestore internal document.id row removed; human-readable custom productId retained
+                  if (productId.isNotEmpty)
+                    _detailRow('Product ID', productId),
+                  _detailRow('Product Name', product['name']),
+                  _detailRow('Category', product['category']),
+                  _detailRow(
+                    'Price',
+                    '₹${(product['price'] as double).toStringAsFixed(0)}',
+                  ),
+                  _detailRow('Stock', '${product['stock']} units'),
+                  _detailRow('Status', product['status']),
+                  _detailRow(
+                    'Prescription',
+                    product['prescriptionRequired']
+                        ? 'Required'
+                        : 'Not Required',
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -791,151 +917,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  void _showAddProductDialog() {
-    final nameController = TextEditingController();
-    final priceController = TextEditingController();
-    final stockController = TextEditingController();
-
-    String category = 'Medicines';
-    bool prescriptionRequired = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Add Product'),
-              content: SizedBox(
-                width: 450,
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Product Name',
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      DropdownButtonFormField<String>(
-                        initialValue: category,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Medicines',
-                            child: Text('Medicines'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Vitamins',
-                            child: Text('Vitamins'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Personal Care',
-                            child: Text('Personal Care'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Antibiotics',
-                            child: Text('Antibiotics'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Baby Care',
-                            child: Text('Baby Care'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setDialogState(() {
-                              category = value;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: priceController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Price',
-                          prefixText: '₹ ',
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: stockController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Initial Stock',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Prescription Required'),
-                        value: prescriptionRequired,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            prescriptionRequired = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final name = nameController.text.trim();
-                    final price = double.tryParse(priceController.text.trim());
-                    final stock = int.tryParse(stockController.text.trim());
-
-                    if (name.isEmpty || price == null || stock == null) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter valid product details.'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    setState(() {
-                      _products.add({
-                        'id':
-                            'PRD${(_products.length + 1).toString().padLeft(3, '0')}',
-                        'name': name,
-                        'category': category,
-                        'price': price,
-                        'stock': stock,
-                        'status': 'Active',
-                        'prescriptionRequired': prescriptionRequired,
-                      });
-                    });
-
-                    Navigator.pop(context);
-
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Product added successfully.'),
-                      ),
-                    );
-                  },
-                  child: const Text('Add Product'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
+  // [Firestore Integration]: Updated Edit Dialog to persist changes to the Firestore document matching document.id
   void _showEditProductDialog(Map<String, dynamic> product) {
     final nameController = TextEditingController(
       text: product['name'].toString(),
@@ -947,14 +929,25 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
       text: product['stock'].toString(),
     );
 
-    String category = product['category'];
-    bool prescriptionRequired = product['prescriptionRequired'];
+    String category = product['category'].toString();
+    bool prescriptionRequired =
+        product['prescriptionRequired'] as bool? ?? false;
+
+    final Set<String> defaultCategories = {
+      'Medicines',
+      'Vitamins',
+      'Personal Care',
+      'Antibiotics',
+      'Baby Care',
+      if (category.trim().isNotEmpty) category.trim(),
+    };
+    final List<String> editCategories = defaultCategories.toList()..sort();
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogInnerContext, setDialogState) {
             return AlertDialog(
               title: const Text('Edit Product'),
               content: SizedBox(
@@ -970,32 +963,20 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
-                        initialValue: category,
+                        initialValue:
+                            editCategories.contains(category)
+                                ? category
+                                : editCategories.first,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Medicines',
-                            child: Text('Medicines'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Vitamins',
-                            child: Text('Vitamins'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Personal Care',
-                            child: Text('Personal Care'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Antibiotics',
-                            child: Text('Antibiotics'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Baby Care',
-                            child: Text('Baby Care'),
-                          ),
-                        ],
+                        items:
+                            editCategories.map((cat) {
+                              return DropdownMenuItem<String>(
+                                value: cat,
+                                child: Text(cat),
+                              );
+                            }).toList(),
                         onChanged: (value) {
                           if (value != null) {
                             setDialogState(() {
@@ -1036,17 +1017,17 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final name = nameController.text.trim();
                     final price = double.tryParse(priceController.text.trim());
                     final stock = int.tryParse(stockController.text.trim());
 
                     if (name.isEmpty || price == null || stock == null) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
+                      ScaffoldMessenger.of(dialogInnerContext).showSnackBar(
                         const SnackBar(
                           content: Text('Please enter valid product details.'),
                         ),
@@ -1054,21 +1035,36 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                       return;
                     }
 
-                    setState(() {
-                      product['name'] = name;
-                      product['category'] = category;
-                      product['price'] = price;
-                      product['stock'] = stock;
-                      product['prescriptionRequired'] = prescriptionRequired;
-                    });
+                    // [Firestore Integration]: Write back using exact Firestore field names (medicineName, type, price, quantity)
+                    try {
+                      Navigator.pop(dialogContext);
+                      await FirebaseFirestore.instance
+                          .collection('products')
+                          .doc(product['id'] as String)
+                          .update({
+                            'medicineName': name,
+                            'type': category,
+                            'price': price,
+                            'quantity': stock,
+                            'updatedAt': FieldValue.serverTimestamp(),
+                          });
 
-                    Navigator.pop(context);
-
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Product updated successfully.'),
-                      ),
-                    );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Product updated successfully.'),
+                          ),
+                        );
+                      }
+                    } catch (error) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to update product: $error'),
+                          ),
+                        );
+                      }
+                    }
                   },
                   child: const Text('Save Changes'),
                 ),
@@ -1080,24 +1076,44 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     );
   }
 
-  void _toggleProductStatus(Map<String, dynamic> product) {
+  // # TODO: A real "status" field should be added later if manual activate/deactivate independent of stock is required.
+  // [Firestore Integration]: Derive status flip by adjusting quantity in Firestore without writing nonexistent status field
+  Future<void> _toggleProductStatus(Map<String, dynamic> product) async {
     final isActive = product['status'] == 'Active';
+    final int newQuantity = isActive ? 0 : 1;
 
-    setState(() {
-      product['status'] = isActive ? 'Inactive' : 'Active';
-    });
+    try {
+      await FirebaseFirestore.instance
+          .collection('products')
+          .doc(product['id'] as String)
+          .update({
+            'quantity': newQuantity,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isActive ? 'Product deactivated.' : 'Product activated.'),
-      ),
-    );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isActive ? 'Product deactivated.' : 'Product activated.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update status: $error')),
+        );
+      }
+    }
   }
 
+  // [Firestore Integration]: Real Firestore delete operation matching document.id
   void _deleteProduct(Map<String, dynamic> product) {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Delete Product'),
           content: Text(
@@ -1105,25 +1121,37 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminColors.danger,
               ),
-              onPressed: () {
-                setState(() {
-                  _products.remove(product);
-                });
+              onPressed: () async {
+                try {
+                  Navigator.pop(dialogContext);
+                  await FirebaseFirestore.instance
+                      .collection('products')
+                      .doc(product['id'] as String)
+                      .delete();
 
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Product deleted successfully.'),
-                  ),
-                );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Product deleted successfully.'),
+                      ),
+                    );
+                  }
+                } catch (error) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to delete product: $error'),
+                      ),
+                    );
+                  }
+                }
               },
               child: const Text('Delete'),
             ),

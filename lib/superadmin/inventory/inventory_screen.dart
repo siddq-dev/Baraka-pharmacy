@@ -1,6 +1,62 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/admin_colors.dart';
+
+// # TODO: minStock should become a real editable per-product field in a future task.
+const int kDefaultMinStock = 10;
+
+// # TODO: unit should become a real per-product field later.
+const String kDefaultUnit = 'units';
+
+// Pure date formatting helper for consistent relative & readable dates without external packages
+String _formatDate(dynamic timestampValue) {
+  if (timestampValue == null) return 'N/A';
+  DateTime date;
+  if (timestampValue is Timestamp) {
+    date = timestampValue.toDate();
+  } else if (timestampValue is DateTime) {
+    date = timestampValue;
+  } else {
+    return timestampValue.toString();
+  }
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final itemDate = DateTime(date.year, date.month, date.day);
+  final differenceInDays = today.difference(itemDate).inDays;
+
+  final hour = date.hour;
+  final minute = date.minute.toString().padLeft(2, '0');
+  final period = hour >= 12 ? 'PM' : 'AM';
+  final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+  final timeStr = '${hour12.toString().padLeft(2, '0')}:$minute $period';
+
+  if (differenceInDays == 0) {
+    return 'Today, $timeStr';
+  } else if (differenceInDays == 1) {
+    return 'Yesterday, $timeStr';
+  } else {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final dayStr = date.day.toString().padLeft(2, '0');
+    final monthStr = months[date.month - 1];
+    return '$dayStr $monthStr ${date.year}';
+  }
+}
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -15,74 +71,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   String _selectedCategory = 'All';
   String _selectedStockStatus = 'All';
 
-  final List<Map<String, dynamic>> _inventory = [
-    {
-      'id': 'INV001',
-      'productId': 'PRD001',
-      'product': 'Paracetamol 500mg',
-      'category': 'Medicines',
-      'stock': 120,
-      'minStock': 20,
-      'unit': 'strips',
-      'status': 'Active',
-      'lastUpdated': 'Today, 10:30 AM',
-    },
-    {
-      'id': 'INV002',
-      'productId': 'PRD002',
-      'product': 'Vitamin C 500mg',
-      'category': 'Vitamins',
-      'stock': 85,
-      'minStock': 20,
-      'unit': 'bottles',
-      'status': 'Active',
-      'lastUpdated': 'Today, 09:15 AM',
-    },
-    {
-      'id': 'INV003',
-      'productId': 'PRD003',
-      'product': 'First Aid Kit',
-      'category': 'Personal Care',
-      'stock': 42,
-      'minStock': 10,
-      'unit': 'kits',
-      'status': 'Active',
-      'lastUpdated': 'Yesterday, 06:20 PM',
-    },
-    {
-      'id': 'INV004',
-      'productId': 'PRD004',
-      'product': 'Amoxicillin 500mg',
-      'category': 'Antibiotics',
-      'stock': 18,
-      'minStock': 25,
-      'unit': 'strips',
-      'status': 'Active',
-      'lastUpdated': 'Today, 08:45 AM',
-    },
-    {
-      'id': 'INV005',
-      'productId': 'PRD005',
-      'product': 'Cough Syrup',
-      'category': 'Medicines',
-      'stock': 7,
-      'minStock': 15,
-      'unit': 'bottles',
-      'status': 'Active',
-      'lastUpdated': 'Today, 07:30 AM',
-    },
-    {
-      'id': 'INV006',
-      'productId': 'PRD006',
-      'product': 'Baby Lotion',
-      'category': 'Baby Care',
-      'stock': 0,
-      'minStock': 10,
-      'unit': 'bottles',
-      'status': 'Inactive',
-      'lastUpdated': '05 Sep 2026',
-    },
-  ];
+  // [Firestore Integration]: Hardcoded _inventory list removed in favor of live Firestore streaming.
 
   @override
   void dispose() {
@@ -90,30 +79,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
     super.dispose();
   }
 
-  int get _totalUnits {
-    return _inventory.fold(0, (total, item) => total + (item['stock'] as int));
+  int _getTotalUnits(List<Map<String, dynamic>> inventory) {
+    return inventory.fold(0, (total, item) => total + (item['stock'] as int));
   }
 
-  int get _lowStockCount {
-    return _inventory.where((item) {
+  int _getLowStockCount(List<Map<String, dynamic>> inventory) {
+    return inventory.where((item) {
       final stock = item['stock'] as int;
       final minimum = item['minStock'] as int;
       return stock > 0 && stock <= minimum;
     }).length;
   }
 
-  int get _outOfStockCount {
-    return _inventory.where((item) => item['stock'] == 0).length;
+  int _getOutOfStockCount(List<Map<String, dynamic>> inventory) {
+    return inventory.where((item) => item['stock'] == 0).length;
   }
 
-  int get _activeItems {
-    return _inventory.where((item) => item['status'] == 'Active').length;
-  }
-
-  List<Map<String, dynamic>> get _filteredInventory {
+  List<Map<String, dynamic>> _getFilteredInventory(
+    List<Map<String, dynamic>> inventory,
+  ) {
     final query = _searchController.text.trim().toLowerCase();
 
-    return _inventory.where((item) {
+    return inventory.where((item) {
       final stock = item['stock'] as int;
       final minimum = item['minStock'] as int;
 
@@ -121,6 +108,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           query.isEmpty ||
           item['product'].toString().toLowerCase().contains(query) ||
           item['productId'].toString().toLowerCase().contains(query) ||
+          item['id'].toString().toLowerCase().contains(query) ||
           item['category'].toString().toLowerCase().contains(query);
 
       final matchesCategory =
@@ -149,22 +137,105 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Scaffold(
       backgroundColor: AdminColors.background,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 800;
+        // [Firestore Integration]: Real-time StreamBuilder listening to the 'products' collection
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance.collection('products').snapshots(),
+          builder: (context, snapshot) {
+            // [Firestore Integration]: Explicitly handle loading state
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.all(isMobile ? 16 : 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(isMobile),
-                  const SizedBox(height: 24),
-                  _buildSummaryCards(isMobile),
-                  const SizedBox(height: 24),
-                  _buildInventorySection(isMobile),
-                ],
-              ),
+            // [Firestore Integration]: Explicitly handle error state using _buildEmptyState container
+            if (snapshot.hasError) {
+              return Center(
+                child: _buildEmptyState(
+                  title: 'Error loading inventory',
+                  subtitle: snapshot.error.toString(),
+                ),
+              );
+            }
+
+            // [Firestore Integration]: Map Firestore docs to the Map shape expected by the UI
+            final List<Map<String, dynamic>> inventory =
+    (snapshot.data?.docs ?? []).map((doc) {
+  final data = doc.data();
+
+  final int quantity =
+      (data['quantity'] as num?)?.toInt() ?? 0;
+
+  final String medicineName =
+      data['medicineName']?.toString() ?? '';
+
+  final String type =
+      data['type']?.toString() ?? '';
+
+  final String productId =
+      data['productId']?.toString() ?? '';
+
+  final dynamic lastTimestamp =
+      data['updatedAt'] ?? data['createdAt'];
+
+  // Read imageUrls from Firestore safely.
+  final List<String> imageUrls =
+      _extractImageUrls(data['imageUrls']);
+
+  debugPrint(
+    'Product: $productId | Image URLs: $imageUrls',
+  );
+
+  return <String, dynamic>{
+    // Firestore document ID.
+    'id': doc.id,
+
+    // Product fields from Firestore.
+    'productId': productId,
+    'product': medicineName,
+    'medicineName': medicineName,
+    'brandName': data['brandName']?.toString() ?? '',
+    'chemicalName': data['chemicalName']?.toString() ?? '',
+    'description': data['description']?.toString() ?? '',
+    'category': type,
+    'type': type,
+    'location': data['location']?.toString() ?? '',
+
+    // Stock fields.
+    'stock': quantity,
+    'quantity': quantity,
+    'minStock': kDefaultMinStock,
+    'unit': kDefaultUnit,
+    'status': quantity > 0 ? 'Active' : 'Inactive',
+
+    // Price fields.
+    'price': (data['price'] as num?)?.toDouble() ?? 0.0,
+    'salePrice': (data['salePrice'] as num?)?.toDouble() ?? 0.0,
+
+    // Date field.
+    'lastUpdated': _formatDate(lastTimestamp),
+
+    // Product images from Firestore.
+    'imageUrls': imageUrls,
+  };
+}).toList();
+
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 800;
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.all(isMobile ? 16 : 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(isMobile, inventory),
+                      const SizedBox(height: 24),
+                      _buildSummaryCards(isMobile, inventory),
+                      const SizedBox(height: 24),
+                      _buildInventorySection(isMobile, inventory),
+                    ],
+                  ),
+                );
+              },
             );
           },
         ),
@@ -172,7 +243,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildHeader(bool isMobile) {
+  Widget _buildHeader(bool isMobile, List<Map<String, dynamic>> inventory) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -193,7 +264,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         Align(
           alignment: isMobile ? Alignment.centerLeft : Alignment.centerRight,
           child: ElevatedButton.icon(
-            onPressed: _showStockAdjustmentDialog,
+            onPressed: () => _showStockAdjustmentDialog(allProducts: inventory),
             icon: const Icon(Icons.add_box_outlined),
             label: const Text('Adjust Stock'),
           ),
@@ -202,29 +273,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildSummaryCards(bool isMobile) {
+  Widget _buildSummaryCards(
+    bool isMobile,
+    List<Map<String, dynamic>> inventory,
+  ) {
     final cards = [
       _summaryCard(
         title: 'Total Products',
-        value: '${_inventory.length}',
+        value: '${inventory.length}',
         icon: Icons.inventory_2_outlined,
         iconColor: AdminColors.info,
       ),
       _summaryCard(
         title: 'Total Units',
-        value: '$_totalUnits',
+        value: '${_getTotalUnits(inventory)}',
         icon: Icons.layers_outlined,
         iconColor: AdminColors.primary,
       ),
       _summaryCard(
         title: 'Low Stock',
-        value: '$_lowStockCount',
+        value: '${_getLowStockCount(inventory)}',
         icon: Icons.warning_amber_outlined,
         iconColor: AdminColors.warning,
       ),
       _summaryCard(
         title: 'Out of Stock',
-        value: '$_outOfStockCount',
+        value: '${_getOutOfStockCount(inventory)}',
         icon: Icons.remove_shopping_cart_outlined,
         iconColor: AdminColors.danger,
       ),
@@ -315,7 +389,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildInventorySection(bool isMobile) {
+  Widget _buildInventorySection(
+    bool isMobile,
+    List<Map<String, dynamic>> inventory,
+  ) {
+    final filtered = _getFilteredInventory(inventory);
+
     return Card(
       child: Padding(
         padding: EdgeInsets.all(isMobile ? 14 : 20),
@@ -332,19 +411,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
               ),
             if (!isMobile) const SizedBox(height: 18),
-            _buildFilters(isMobile),
+            _buildFilters(isMobile, inventory),
             const SizedBox(height: 18),
             if (isMobile)
-              _buildMobileInventoryList()
+              _buildMobileInventoryList(filtered, inventory)
             else
-              _buildDesktopInventoryTable(),
+              _buildDesktopInventoryTable(filtered, inventory),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilters(bool isMobile) {
+  Widget _buildFilters(bool isMobile, List<Map<String, dynamic>> inventory) {
     if (isMobile) {
       return Column(
         children: [
@@ -359,7 +438,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _categoryDropdown()),
+              Expanded(child: _categoryDropdown(inventory)),
               const SizedBox(width: 10),
               Expanded(child: _stockStatusDropdown()),
             ],
@@ -382,25 +461,38 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
         const SizedBox(width: 14),
-        SizedBox(width: 180, child: _categoryDropdown()),
+        SizedBox(width: 180, child: _categoryDropdown(inventory)),
         const SizedBox(width: 14),
         SizedBox(width: 170, child: _stockStatusDropdown()),
       ],
     );
   }
 
-  Widget _categoryDropdown() {
+  // [Firestore Integration]: Dynamic category dropdown items from distinct 'type' values in live snapshot
+  Widget _categoryDropdown(List<Map<String, dynamic>> inventory) {
+    final Set<String> distinctCategories = inventory
+        .map((p) => (p['category'] ?? '').toString().trim())
+        .where((cat) => cat.isNotEmpty)
+        .toSet();
+
+    final List<String> categories = [
+      'All',
+      ...distinctCategories.toList()..sort(),
+    ];
+    final String selectedValue = categories.contains(_selectedCategory)
+        ? _selectedCategory
+        : 'All';
+
     return DropdownButtonFormField<String>(
-      initialValue: _selectedCategory,
+      key: ValueKey('inv_cat_$selectedValue'),
+      initialValue: selectedValue,
       decoration: const InputDecoration(labelText: 'Category'),
-      items: const [
-        DropdownMenuItem(value: 'All', child: Text('All Categories')),
-        DropdownMenuItem(value: 'Medicines', child: Text('Medicines')),
-        DropdownMenuItem(value: 'Vitamins', child: Text('Vitamins')),
-        DropdownMenuItem(value: 'Personal Care', child: Text('Personal Care')),
-        DropdownMenuItem(value: 'Antibiotics', child: Text('Antibiotics')),
-        DropdownMenuItem(value: 'Baby Care', child: Text('Baby Care')),
-      ],
+      items: categories.map((cat) {
+        return DropdownMenuItem<String>(
+          value: cat,
+          child: Text(cat == 'All' ? 'All Categories' : cat),
+        );
+      }).toList(),
       onChanged: (value) {
         if (value == null) return;
 
@@ -413,6 +505,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Widget _stockStatusDropdown() {
     return DropdownButtonFormField<String>(
+      key: ValueKey('inv_status_$_selectedStockStatus'),
       initialValue: _selectedStockStatus,
       decoration: const InputDecoration(labelText: 'Stock Status'),
       items: const [
@@ -431,9 +524,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildDesktopInventoryTable() {
-    final items = _filteredInventory;
-
+  Widget _buildDesktopInventoryTable(
+    List<Map<String, dynamic>> items,
+    List<Map<String, dynamic>> allInventory,
+  ) {
     if (items.isEmpty) {
       return _buildEmptyState();
     }
@@ -457,6 +551,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
             DataColumn(label: Text('Actions')),
           ],
           rows: items.map((item) {
+            final String displayId =
+                (item['productId'] as String? ?? '').isNotEmpty
+                ? item['productId'] as String
+                : item['id'] as String;
+
             return DataRow(
               cells: [
                 DataCell(
@@ -477,7 +576,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          item['productId'],
+                          displayId,
                           style: const TextStyle(
                             fontSize: 12,
                             color: AdminColors.textSecondary,
@@ -489,10 +588,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 DataCell(Text(item['category'])),
                 DataCell(
-                  _stockBadge(item['stock'], item['minStock'], item['unit']),
+                  _stockBadge(
+                    item['stock'] as int,
+                    item['minStock'] as int,
+                    item['unit'] as String,
+                  ),
                 ),
                 DataCell(Text('${item['minStock']} ${item['unit']}')),
-                DataCell(_statusBadge(item['status'])),
+                DataCell(_statusBadge(item['status'] as String)),
                 DataCell(
                   Text(
                     item['lastUpdated'],
@@ -502,7 +605,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   ),
                 ),
-                DataCell(_actionMenu(item)),
+                DataCell(_actionMenu(item, allInventory)),
               ],
             );
           }).toList(),
@@ -511,15 +614,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildMobileInventoryList() {
-    final items = _filteredInventory;
-
+  Widget _buildMobileInventoryList(
+    List<Map<String, dynamic>> items,
+    List<Map<String, dynamic>> allInventory,
+  ) {
     if (items.isEmpty) {
       return _buildEmptyState();
     }
 
     return Column(
       children: items.map((item) {
+        final String displayId = (item['productId'] as String? ?? '').isNotEmpty
+            ? item['productId'] as String
+            : item['id'] as String;
+
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
@@ -545,7 +653,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${item['productId']} • ${item['category']}',
+                          '$displayId • ${item['category']}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AdminColors.textSecondary,
@@ -554,8 +662,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ],
                     ),
                   ),
-                  _statusBadge(item['status']),
-                  _actionMenu(item),
+                  _statusBadge(item['status'] as String),
+                  _actionMenu(item, allInventory),
                 ],
               ),
               const SizedBox(height: 14),
@@ -581,7 +689,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Expanded(
                     child: _mobileInfo('Last Updated', item['lastUpdated']),
                   ),
-                  Expanded(child: _stockLabel(item['stock'], item['minStock'])),
+                  Expanded(
+                    child: _stockLabel(
+                      item['stock'] as int,
+                      item['minStock'] as int,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -703,7 +816,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _actionMenu(Map<String, dynamic> item) {
+  Widget _actionMenu(
+    Map<String, dynamic> item,
+    List<Map<String, dynamic>> allInventory,
+  ) {
     return PopupMenuButton<String>(
       tooltip: 'Actions',
       onSelected: (value) {
@@ -712,7 +828,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             _showInventoryDetails(item);
             break;
           case 'adjust':
-            _showStockAdjustmentDialog(item: item);
+            _showStockAdjustmentDialog(item: item, allProducts: allInventory);
             break;
           case 'history':
             _showStockHistory(item);
@@ -748,19 +864,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'toggle',
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.power_settings_new),
-            title: Text('Activate / Deactivate'),
+            leading: const Icon(Icons.power_settings_new),
+            title: Text(item['status'] == 'Active' ? 'Deactivate' : 'Activate'),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({
+    String title = 'No inventory items found',
+    String subtitle = 'Try changing your search or filters.',
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 60),
       child: Center(
@@ -772,18 +891,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
               color: AdminColors.textLight,
             ),
             const SizedBox(height: 12),
-            const Text(
-              'No inventory items found',
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AdminColors.textPrimary,
               ),
             ),
             const SizedBox(height: 5),
-            const Text(
-              'Try changing your search or filters.',
-              style: TextStyle(color: AdminColors.textSecondary),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AdminColors.textSecondary),
             ),
           ],
         ),
@@ -792,40 +911,160 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showInventoryDetails(Map<String, dynamic> item) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Inventory Details'),
-          content: SizedBox(
-            width: 450,
+  final String productId =
+      item['productId']?.toString() ?? '';
+
+  final String productName =
+      item['medicineName']?.toString().trim().isNotEmpty == true
+          ? item['medicineName'].toString()
+          : item['product']?.toString() ?? 'Unknown Product';
+
+  final String category =
+      item['type']?.toString().trim().isNotEmpty == true
+          ? item['type'].toString()
+          : item['category']?.toString() ?? 'Not specified';
+
+  final String stock =
+      item['quantity']?.toString() ??
+      item['stock']?.toString() ??
+      '0';
+
+  final String unit =
+      item['unit']?.toString() ?? 'units';
+
+  final String minimumStock =
+      item['minStock']?.toString() ?? '0';
+
+  final String status =
+      item['status']?.toString() ?? 'Active';
+
+  final String lastUpdated =
+      item['lastUpdated']?.toString() ?? 'Not available';
+
+  final List<String> imageUrls =
+      _extractImageUrls(item['imageUrls']);
+
+  final String? coverImageUrl =
+      imageUrls.isNotEmpty ? imageUrls.first : null;
+
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('Inventory Details'),
+        content: SizedBox(
+          width: 450,
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _detailRow('Inventory ID', item['id']),
-                _detailRow('Product ID', item['productId']),
-                _detailRow('Product', item['product']),
-                _detailRow('Category', item['category']),
-                _detailRow('Current Stock', '${item['stock']} ${item['unit']}'),
+                Center(
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: AdminColors.background,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AdminColors.border,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: coverImageUrl != null
+                          ? Image.network(
+                              coverImageUrl,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                if (loadingProgress == null) {
+                                  return child;
+                                }
+
+                                return const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                );
+                              },
+                              errorBuilder:
+                                  (context, error, stackTrace) {
+                                debugPrint(
+                                  'Image loading failed for $productId: $error | URL: $coverImageUrl',
+                                );
+
+                                return const Center(
+                                  child: Icon(
+                                    Icons.image_not_supported_outlined,
+                                    size: 38,
+                                    color: AdminColors.textLight,
+                                  ),
+                                );
+                              },
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                size: 38,
+                                color: AdminColors.textLight,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                if (productId.isNotEmpty)
+                  _detailRow('Product ID', productId),
+
+                _detailRow('Product', productName),
+                _detailRow('Category', category),
+                _detailRow('Current Stock', '$stock $unit'),
                 _detailRow(
                   'Minimum Stock',
-                  '${item['minStock']} ${item['unit']}',
+                  '$minimumStock $unit',
                 ),
-                _detailRow('Status', item['status']),
-                _detailRow('Last Updated', item['lastUpdated']),
+                _detailRow('Status', status),
+                _detailRow('Last Updated', lastUpdated),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+  List<String> _extractImageUrls(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value
+          .map((url) => url?.toString().trim() ?? '')
+          .where((url) => url.isNotEmpty)
+          .toList();
+    }
+
+    if (value is String && value.trim().isNotEmpty) {
+      return [value.trim()];
+    }
+
+    return [];
   }
 
   Widget _detailRow(String label, String value) {
@@ -855,18 +1094,39 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  void _showStockAdjustmentDialog({Map<String, dynamic>? item}) {
+  // [Firestore Integration]: Stock Adjustment Dialog with read-only Product ID and atomic WriteBatch
+  void _showStockAdjustmentDialog({
+    Map<String, dynamic>? item,
+    List<Map<String, dynamic>> allProducts = const [],
+  }) {
     final quantityController = TextEditingController();
 
-    String? selectedProduct = item?['productId']?.toString();
-
+    String? selectedDocId = item?['id']?.toString();
     String adjustmentType = 'Add Stock';
+
+    Map<String, dynamic>? currentResolvedProduct =
+        item ??
+        (selectedDocId != null
+            ? allProducts.cast<Map<String, dynamic>?>().firstWhere(
+                (p) => p?['id'] == selectedDocId,
+                orElse: () => null,
+              )
+            : (allProducts.isNotEmpty ? allProducts.first : null));
+
+    if (item == null && currentResolvedProduct != null) {
+      selectedDocId = currentResolvedProduct['id']?.toString();
+    }
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogInnerContext, setDialogState) {
+            final String resolvedProductId =
+                currentResolvedProduct?['productId']?.toString() ??
+                currentResolvedProduct?['id']?.toString() ??
+                '';
+
             return AlertDialog(
               title: Text(
                 item == null
@@ -875,81 +1135,130 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
               content: SizedBox(
                 width: 450,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (item == null)
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedProduct,
-                        decoration: const InputDecoration(labelText: 'Product'),
-                        items: _inventory.map((inventoryItem) {
-                          return DropdownMenuItem<String>(
-                            value: inventoryItem['productId'],
-                            child: Text(
-                              inventoryItem['product'],
-                              overflow: TextOverflow.ellipsis,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Clearly visible, READ-ONLY Product ID display
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: AdminColors.background,
+                          border: Border.all(color: AdminColors.border),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Product ID: ',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: AdminColors.textSecondary,
+                              ),
                             ),
-                          );
-                        }).toList(),
+                            Expanded(
+                              child: Text(
+                                resolvedProductId.isNotEmpty
+                                    ? resolvedProductId
+                                    : 'None Selected',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: AdminColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (item == null)
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedDocId,
+                          decoration: const InputDecoration(
+                            labelText: 'Product',
+                          ),
+                          items: allProducts.map((inventoryItem) {
+                            return DropdownMenuItem<String>(
+                              value: inventoryItem['id'] as String,
+                              child: Text(
+                                inventoryItem['product'] as String,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              selectedDocId = value;
+                              currentResolvedProduct = allProducts
+                                  .cast<Map<String, dynamic>?>()
+                                  .firstWhere(
+                                    (p) => p?['id'] == value,
+                                    orElse: () => null,
+                                  );
+                            });
+                          },
+                        ),
+                      if (item == null) const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: adjustmentType,
+                        decoration: const InputDecoration(
+                          labelText: 'Adjustment Type',
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Add Stock',
+                            child: Text('Add Stock'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Remove Stock',
+                            child: Text('Remove Stock'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Set Stock',
+                            child: Text('Set Exact Stock'),
+                          ),
+                        ],
                         onChanged: (value) {
-                          setDialogState(() {
-                            selectedProduct = value;
-                          });
+                          if (value != null) {
+                            setDialogState(() {
+                              adjustmentType = value;
+                            });
+                          }
                         },
                       ),
-                    if (item == null) const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      initialValue: adjustmentType,
-                      decoration: const InputDecoration(
-                        labelText: 'Adjustment Type',
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: quantityController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Quantity',
+                          hintText: 'Enter quantity',
+                        ),
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Add Stock',
-                          child: Text('Add Stock'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Remove Stock',
-                          child: Text('Remove Stock'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Set Stock',
-                          child: Text('Set Exact Stock'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setDialogState(() {
-                            adjustmentType = value;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: quantityController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Quantity',
-                        hintText: 'Enter quantity',
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final quantity = int.tryParse(
                       quantityController.text.trim(),
                     );
 
                     if (quantity == null || quantity < 0) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Please enter a valid quantity.'),
                         ),
@@ -957,19 +1266,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       return;
                     }
 
-                    Map<String, dynamic>? targetItem = item;
-
-                    if (targetItem == null && selectedProduct != null) {
-                      for (final inventoryItem in _inventory) {
-                        if (inventoryItem['productId'] == selectedProduct) {
-                          targetItem = inventoryItem;
-                          break;
-                        }
-                      }
-                    }
+                    final Map<String, dynamic>? targetItem =
+                        item ?? currentResolvedProduct;
 
                     if (targetItem == null) {
-                      ScaffoldMessenger.of(this.context).showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Please select a product.'),
                         ),
@@ -977,30 +1278,73 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       return;
                     }
 
-                    setState(() {
-                      final currentStock = targetItem!['stock'] as int;
+                    final currentStock = targetItem['stock'] as int;
+                    late int newStock;
+                    late int quantityChange;
+                    late String historyType;
 
-                      if (adjustmentType == 'Add Stock') {
-                        targetItem['stock'] = currentStock + quantity;
-                      } else if (adjustmentType == 'Remove Stock') {
-                        targetItem['stock'] = (currentStock - quantity).clamp(
-                          0,
-                          999999,
+                    if (adjustmentType == 'Add Stock') {
+                      newStock = currentStock + quantity;
+                      quantityChange = quantity;
+                      historyType = 'Stock Added';
+                    } else if (adjustmentType == 'Remove Stock') {
+                      newStock = (currentStock - quantity).clamp(0, 999999999);
+                      quantityChange = -(currentStock - newStock);
+                      historyType = 'Stock Removed';
+                    } else {
+                      newStock = quantity;
+                      quantityChange = newStock - currentStock;
+                      historyType = 'Stock Set';
+                    }
+
+                    // [Firestore Integration]: Atomic WriteBatch updating quantity and recording per-product stockHistory
+                    try {
+                      Navigator.pop(dialogContext);
+
+                      final docRef = FirebaseFirestore.instance
+                          .collection('products')
+                          .doc(targetItem['id'] as String);
+                      final historyRef = docRef
+                          .collection('stockHistory')
+                          .doc();
+
+                      final batch = FirebaseFirestore.instance.batch();
+
+                      batch.update(docRef, {
+                        'quantity': newStock,
+                        'updatedAt': FieldValue.serverTimestamp(),
+                      });
+
+                      final user = FirebaseAuth.instance.currentUser;
+                      final updatedBy = user?.email ?? user?.uid ?? 'Unknown';
+
+                      batch.set(historyRef, {
+                        'type': historyType,
+                        'quantityChange': quantityChange,
+                        'previousQuantity': currentStock,
+                        'newQuantity': newStock,
+                        'updatedAt': FieldValue.serverTimestamp(),
+                        'updatedBy': updatedBy,
+                      });
+
+                      await batch.commit();
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Stock updated successfully.'),
+                          ),
                         );
-                      } else {
-                        targetItem['stock'] = quantity;
                       }
-
-                      targetItem['lastUpdated'] = 'Just now';
-                    });
-
-                    Navigator.pop(context);
-
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Stock updated successfully.'),
-                      ),
-                    );
+                    } catch (error) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to update stock: $error'),
+                          ),
+                        );
+                      }
+                    }
                   },
                   child: const Text('Update Stock'),
                 ),
@@ -1012,82 +1356,117 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
+  // [Firestore Integration]: Real per-product stockHistory subcollection stream
   void _showStockHistory(Map<String, dynamic> item) {
-    final history = [
-      {
-        'type': 'Stock Added',
-        'quantity': '+50',
-        'date': 'Today, 10:30 AM',
-        'user': 'Super Admin',
-      },
-      {
-        'type': 'Order Deduction',
-        'quantity': '-12',
-        'date': 'Today, 09:20 AM',
-        'user': 'System',
-      },
-      {
-        'type': 'Stock Added',
-        'quantity': '+30',
-        'date': 'Yesterday, 05:10 PM',
-        'user': 'Inventory Manager',
-      },
-      {
-        'type': 'Stock Adjustment',
-        'quantity': '+10',
-        'date': '05 Sep 2026',
-        'user': 'Super Admin',
-      },
-    ];
-
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: Text('Stock History • ${item['product']}'),
           content: SizedBox(
             width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: history.map((entry) {
-                final isPositive = entry['quantity'].toString().startsWith('+');
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('products')
+                  .doc(item['id'] as String)
+                  .collection('stockHistory')
+                  .orderBy('updatedAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 180,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    radius: 18,
-                    backgroundColor:
-                        (isPositive ? AdminColors.success : AdminColors.warning)
-                            .withValues(alpha: 0.10),
-                    child: Icon(
-                      isPositive ? Icons.add : Icons.remove,
-                      size: 18,
-                      color: isPositive
-                          ? AdminColors.success
-                          : AdminColors.warning,
+                if (snapshot.hasError) {
+                  return SizedBox(
+                    height: 180,
+                    child: Center(
+                      child: Text(
+                        'Error loading history: ${snapshot.error}',
+                        style: const TextStyle(color: AdminColors.danger),
+                      ),
                     ),
-                  ),
-                  title: Text(
-                    entry['type'].toString(),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text('${entry['date']} • ${entry['user']}'),
-                  trailing: Text(
-                    entry['quantity'].toString(),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: isPositive
-                          ? AdminColors.success
-                          : AdminColors.warning,
+                  );
+                }
+
+                final docs = snapshot.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        'No stock history yet',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AdminColors.textSecondary,
+                        ),
+                      ),
                     ),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: docs.map((doc) {
+                      final data = doc.data();
+                      final String type =
+                          data['type'] as String? ?? 'Stock Adjustment';
+                      final int change =
+                          (data['quantityChange'] as num?)?.toInt() ?? 0;
+                      final String changeStr = change >= 0
+                          ? '+$change'
+                          : '$change';
+                      final bool isPositive = change >= 0;
+                      final String dateStr = _formatDate(data['updatedAt']);
+                      final String userStr =
+                          data['updatedBy'] as String? ?? 'Unknown';
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          radius: 18,
+                          backgroundColor:
+                              (isPositive
+                                      ? AdminColors.success
+                                      : AdminColors.warning)
+                                  .withValues(alpha: 0.10),
+                          child: Icon(
+                            isPositive ? Icons.add : Icons.remove,
+                            size: 18,
+                            color: isPositive
+                                ? AdminColors.success
+                                : AdminColors.warning,
+                          ),
+                        ),
+                        title: Text(
+                          type,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text('$dateStr • $userStr'),
+                        trailing: Text(
+                          changeStr,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: isPositive
+                                ? AdminColors.success
+                                : AdminColors.warning,
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 );
-              }).toList(),
+              },
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Close'),
             ),
           ],
@@ -1096,21 +1475,86 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  void _toggleStatus(Map<String, dynamic> item) {
+  // # TODO: A real "status" field should be added later if manual activate/deactivate independent of stock is required.
+  // [Firestore Integration]: Toggle status by updating quantity in Firestore without writing nonexistent status field
+  Future<void> _toggleStatus(Map<String, dynamic> item) async {
     final isActive = item['status'] == 'Active';
 
-    setState(() {
-      item['status'] = isActive ? 'Inactive' : 'Active';
-    });
+    if (isActive) {
+      // Prompt confirmation before zeroing stock
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Deactivate Product'),
+            content: Text(
+              'Deactivating "${item['product']}" will set its stock to 0. Are you sure you want to proceed?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminColors.danger,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Deactivate'),
+              ),
+            ],
+          );
+        },
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isActive
-              ? '${item['product']} deactivated.'
-              : '${item['product']} activated.',
-        ),
-      ),
-    );
+      if (confirm != true) return;
+    }
+
+    final int newQuantity = isActive ? 0 : 10;
+
+    try {
+      final docRef = FirebaseFirestore.instance
+          .collection('products')
+          .doc(item['id'] as String);
+      final historyRef = docRef.collection('stockHistory').doc();
+
+      final batch = FirebaseFirestore.instance.batch();
+      batch.update(docRef, {
+        'quantity': newQuantity,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      final user = FirebaseAuth.instance.currentUser;
+      final updatedBy = user?.email ?? user?.uid ?? 'Unknown';
+
+      batch.set(historyRef, {
+        'type': isActive ? 'Stock Removed' : 'Stock Added',
+        'quantityChange': isActive ? -(item['stock'] as int) : newQuantity,
+        'previousQuantity': item['stock'] as int,
+        'newQuantity': newQuantity,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': updatedBy,
+      });
+
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isActive
+                  ? '${item['product']} deactivated.'
+                  : '${item['product']} activated.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update status: $error')),
+        );
+      }
+    }
   }
 }

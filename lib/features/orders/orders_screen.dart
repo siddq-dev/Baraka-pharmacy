@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
@@ -21,9 +22,13 @@ class OrdersScreen extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(
+          color: AppColors.textPrimary,
+        ),
       ),
-      body: SafeArea(child: _buildOrdersList()),
+      body: SafeArea(
+        child: _buildOrdersList(),
+      ),
     );
   }
 
@@ -72,7 +77,10 @@ class OrdersScreen extends StatelessWidget {
         const SizedBox(height: 6),
         const Text(
           'View your recent orders and their status.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+          ),
         ),
         const SizedBox(height: 20),
         ...orders.map(
@@ -105,7 +113,9 @@ class OrdersScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: AppColors.border,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -126,7 +136,11 @@ class OrdersScreen extends StatelessWidget {
                   color: statusColor.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(icon, color: statusColor, size: 23),
+                child: Icon(
+                  icon,
+                  color: statusColor,
+                  size: 23,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -152,11 +166,17 @@ class OrdersScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              _buildStatusBadge(status: status, color: statusColor),
+              _buildStatusBadge(
+                status: status,
+                color: statusColor,
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: AppColors.border),
+          const Divider(
+            height: 1,
+            color: AppColors.border,
+          ),
           const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +203,10 @@ class OrdersScreen extends StatelessWidget {
             children: [
               const Text(
                 'Total',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
               const Spacer(),
               Text(
@@ -206,14 +229,19 @@ class OrdersScreen extends StatelessWidget {
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
+                side: const BorderSide(
+                  color: AppColors.primary,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
                 'View Order Details',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -222,9 +250,15 @@ class OrdersScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge({required String status, required Color color}) {
+  Widget _buildStatusBadge({
+    required String status,
+    required Color color,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.10),
         borderRadius: BorderRadius.circular(20),
@@ -240,3 +274,4 @@ class OrdersScreen extends StatelessWidget {
     );
   }
 }
+

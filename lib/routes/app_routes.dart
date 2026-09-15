@@ -26,6 +26,8 @@ import '../superadmin/orders/admin_orders_screen.dart';
 import '../superadmin/products/product_management_screen.dart';
 import '../superadmin/settings/admin_settings_screen.dart';
 
+// Products Management
+import '../features/products/add_product_screen.dart';
 // Admin screens
 import '../admin/admin_dashboard_screen.dart';
 
@@ -89,6 +91,10 @@ class AppRoutes {
 
   static const String superAdminSettings = '/superadmin/settings';
 
+  // ============================================================
+  // OTHER ROLE ROUTES (placeholders until real dashboards exist)
+  // ============================================================
+  static const String addproduct = '/Products/add';
   // ============================================================
   // OTHER ROLE ROUTES (placeholders until real dashboards exist)
   // ============================================================
@@ -278,6 +284,15 @@ class AppRoutes {
         ],
       ),
 
+      // ========================================================
+      // SUPER ADMIN APP
+      // ========================================================
+      GoRoute(
+        path: addproduct,
+        builder: (context, state) {
+          return const AddProductScreen();
+        },
+      ),
       // ========================================================
       // ADMIN APP (placeholder — replace with real dashboard + shell)
       // ========================================================
